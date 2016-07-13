@@ -139,7 +139,7 @@ func main() {
 		showVersion   = flag.Bool("version", false, "Print version information.")
 		listenAddress = flag.String("web.listen-address", ":9172", "Address to listen on for web interface and telemetry.")
 		metricsPath   = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
-		nomadServer   = flag.String("nomad.server", "localhost:4646", "HTTP API address of a Nomad server or agent.")
+		nomadServer   = flag.String("nomad.server", "http://localhost:4646", "HTTP API address of a Nomad server or agent.")
 	)
 	flag.Parse()
 
