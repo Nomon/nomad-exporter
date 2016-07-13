@@ -42,20 +42,15 @@ var (
 		"How many allocations are there in the cluster.",
 		nil, nil,
 	)
-	jobs = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "job"),
-		"How many jobs are running in the cluster.",
-		[]string{"job", "group", "status"}, nil,
-	)
-	allocation = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "allocation"),
-		"Allocations",
-		[]string{"job", "group", "alloc", "node", "name", "region", "dc"}, nil,
-	)
 	allocationMemory = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "allocation_memory"),
 		"Allocation memory usage",
-		[]string{"job", "group", "alloc", "pid"}, nil,
+		[]string{"job", "group", "alloc"}, nil,
+	)
+	allocationMemoryLimit = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "allocation_memory_limit"),
+		"Allocation memory limit",
+		[]string{"job", "group", "alloc"}, nil,
 	)
 	allocationCPU = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "allocation_cpu"),
@@ -92,11 +87,10 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nodeCount
 	ch <- allocationCount
 	ch <- jobCount
-	ch <- jobs
-	ch <- allocation
 	ch <- allocationMemory
 	ch <- allocationCPU
 	ch <- allocationCPUThrottled
+	ch <- allocationMemoryLimit
 }
 
 // Collect collects nomad metrics
@@ -106,7 +100,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 		ch <- prometheus.MustNewConstMetric(
 			up, prometheus.GaugeValue, 0,
 		)
-		log.Println("Query failed", err)
+		logError(err)
 		return
 	}
 	ch <- prometheus.MustNewConstMetric(
@@ -117,7 +111,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	)
 	nodes, _, err := e.client.Nodes().List(&api.QueryOptions{})
 	if err != nil {
-		log.Println("Query failed", err)
+		logError(err)
 		return
 	}
 	ch <- prometheus.MustNewConstMetric(
@@ -125,13 +119,45 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	)
 	jobs, _, err := e.client.Jobs().List(&api.QueryOptions{})
 	if err != nil {
-		log.Println("Query failed", err)
+		logError(err)
 		return
 	}
 	ch <- prometheus.MustNewConstMetric(
 		jobCount, prometheus.GaugeValue, float64(len(jobs)),
 	)
+	allocs, _, err := e.client.Allocations().List(&api.QueryOptions{})
+	if err != nil {
+		logError(err)
+		return
+	}
+	ch <- prometheus.MustNewConstMetric(
+		allocationCount, prometheus.GaugeValue, float64(len(allocs)),
+	)
+	for _, a := range allocs {
+		alloc, _, err := e.client.Allocations().Info(a.ID, &api.QueryOptions{})
+		if err != nil {
+			logError(err)
+			return
+		}
 
+		stats, err := e.client.Allocations().Stats(alloc, &api.QueryOptions{})
+		if err != nil {
+			logError(err)
+			return
+		}
+		ch <- prometheus.MustNewConstMetric(
+			allocationCPU, prometheus.GaugeValue, stats.ResourceUsage.CpuStats.Percent, alloc.Job.Name, alloc.TaskGroup, alloc.Name,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			allocationCPUThrottled, prometheus.GaugeValue, float64(stats.ResourceUsage.CpuStats.ThrottledTime), alloc.Job.Name, alloc.TaskGroup, alloc.Name,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			allocationMemory, prometheus.GaugeValue, float64(stats.ResourceUsage.MemoryStats.RSS), alloc.Job.Name, alloc.TaskGroup, alloc.Name,
+		)
+		ch <- prometheus.MustNewConstMetric(
+			allocationMemoryLimit, prometheus.GaugeValue, float64(stats.ResourceUsage.MemoryStats.MaxUsage), alloc.Job.Name, alloc.TaskGroup, alloc.Name,
+		)
+	}
 }
 
 func main() {
@@ -166,4 +192,9 @@ func main() {
 
 	log.Println("Listening on", *listenAddress)
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
+}
+
+func logError(err error) {
+	log.Println("Query error", err)
+	return
 }
