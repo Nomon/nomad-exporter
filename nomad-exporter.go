@@ -33,45 +33,39 @@ var (
 		nil, nil,
 	)
 	jobCount = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "serf_lan_members"),
+		prometheus.BuildFQName(namespace, "", "jobs"),
 		"How many jobs are there in the cluster.",
 		nil, nil,
 	)
 	allocationCount = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "serf_lan_members"),
+		prometheus.BuildFQName(namespace, "", "allocatioms"),
 		"How many allocations are there in the cluster.",
 		nil, nil,
 	)
-	nodes = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "nodes"),
-		"How many jobs are running in the cluster.",
-		[]string{"job", "group", "status"}, nil,
-	)
-
 	jobs = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "allocations"),
+		prometheus.BuildFQName(namespace, "", "job"),
 		"How many jobs are running in the cluster.",
 		[]string{"job", "group", "status"}, nil,
 	)
 	allocation = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "allocations"),
+		prometheus.BuildFQName(namespace, "", "allocation"),
 		"Allocations",
-		[]string{"job", "group", "status", "node", "name", "region", "dc"}, nil,
+		[]string{"job", "group", "alloc", "node", "name", "region", "dc"}, nil,
 	)
 	allocationMemory = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "allocation_memory"),
-		"Allocations",
-		[]string{"alloc", "group", "job", "pid"}, nil,
+		"Allocation memory usage",
+		[]string{"job", "group", "alloc", "pid"}, nil,
 	)
 	allocationCPU = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "allocation_cpu"),
-		"CPU",
-		[]string{"alloc", "group", "job", "pid", "mode"}, nil,
+		"Allocation CPU usage",
+		[]string{"job", "group", "alloc", "pid", "mode"}, nil,
 	)
 	allocationCPUThrottled = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "allocation_cpu"),
-		"Throttled CPU",
-		[]string{"alloc", "group", "job", "pid"}, nil,
+		prometheus.BuildFQName(namespace, "", "allocation_cpu_throttle"),
+		"Allocation throttled CPU",
+		[]string{"job", "group", "alloc", "pid"}, nil,
 	)
 )
 
@@ -98,7 +92,6 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- nodeCount
 	ch <- allocationCount
 	ch <- jobCount
-	ch <- nodes
 	ch <- jobs
 	ch <- allocation
 	ch <- allocationMemory
