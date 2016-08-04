@@ -55,12 +55,12 @@ var (
 	allocationCPU = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "allocation_cpu"),
 		"Allocation CPU usage",
-		[]string{"job", "group", "alloc", "pid", "mode"}, nil,
+		[]string{"job", "group", "alloc"}, nil,
 	)
 	allocationCPUThrottled = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "allocation_cpu_throttle"),
 		"Allocation throttled CPU",
-		[]string{"job", "group", "alloc", "pid"}, nil,
+		[]string{"job", "group", "alloc"}, nil,
 	)
 )
 
@@ -155,7 +155,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			allocationMemory, prometheus.GaugeValue, float64(stats.ResourceUsage.MemoryStats.RSS), alloc.Job.Name, alloc.TaskGroup, alloc.Name,
 		)
 		ch <- prometheus.MustNewConstMetric(
-			allocationMemoryLimit, prometheus.GaugeValue, float64(stats.ResourceUsage.MemoryStats.MaxUsage), alloc.Job.Name, alloc.TaskGroup, alloc.Name,
+			allocationMemoryLimit, prometheus.GaugeValue, float64(alloc.Resources.MemoryMB), alloc.Job.Name, alloc.TaskGroup, alloc.Name,
 		)
 	}
 }
