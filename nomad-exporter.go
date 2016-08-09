@@ -137,13 +137,13 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 		alloc, _, err := e.client.Allocations().Info(a.ID, &api.QueryOptions{})
 		if err != nil {
 			logError(err)
-			return
+			continue
 		}
 
 		stats, err := e.client.Allocations().Stats(alloc, &api.QueryOptions{})
 		if err != nil {
 			logError(err)
-			return
+			continue
 		}
 		ch <- prometheus.MustNewConstMetric(
 			allocationCPU, prometheus.GaugeValue, stats.ResourceUsage.CpuStats.Percent, alloc.Job.Name, alloc.TaskGroup, alloc.Name,
