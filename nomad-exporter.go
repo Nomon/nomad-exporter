@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/hashicorp/nomad/api"
 	"github.com/prometheus/client_golang/prometheus"
@@ -133,31 +134,37 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(
 		allocationCount, prometheus.GaugeValue, float64(len(allocs)),
 	)
+	var w sync.WaitGroup
 	for _, a := range allocs {
-		alloc, _, err := e.client.Allocations().Info(a.ID, &api.QueryOptions{})
-		if err != nil {
-			logError(err)
-			continue
-		}
+		w.Add(1)
+		go func(a *api.AllocationListStub) {
+			defer w.Done()
+			alloc, _, err := e.client.Allocations().Info(a.ID, &api.QueryOptions{})
+			if err != nil {
+				logError(err)
+				return
+			}
 
-		stats, err := e.client.Allocations().Stats(alloc, &api.QueryOptions{})
-		if err != nil {
-			logError(err)
-			continue
-		}
-		ch <- prometheus.MustNewConstMetric(
-			allocationCPU, prometheus.GaugeValue, stats.ResourceUsage.CpuStats.Percent, alloc.Job.Name, alloc.TaskGroup, alloc.Name,
-		)
-		ch <- prometheus.MustNewConstMetric(
-			allocationCPUThrottled, prometheus.GaugeValue, float64(stats.ResourceUsage.CpuStats.ThrottledTime), alloc.Job.Name, alloc.TaskGroup, alloc.Name,
-		)
-		ch <- prometheus.MustNewConstMetric(
-			allocationMemory, prometheus.GaugeValue, float64(stats.ResourceUsage.MemoryStats.RSS), alloc.Job.Name, alloc.TaskGroup, alloc.Name,
-		)
-		ch <- prometheus.MustNewConstMetric(
-			allocationMemoryLimit, prometheus.GaugeValue, float64(alloc.Resources.MemoryMB), alloc.Job.Name, alloc.TaskGroup, alloc.Name,
-		)
+			stats, err := e.client.Allocations().Stats(alloc, &api.QueryOptions{})
+			if err != nil {
+				logError(err)
+				return
+			}
+			ch <- prometheus.MustNewConstMetric(
+				allocationCPU, prometheus.GaugeValue, stats.ResourceUsage.CpuStats.Percent, alloc.Job.Name, alloc.TaskGroup, alloc.Name,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				allocationCPUThrottled, prometheus.GaugeValue, float64(stats.ResourceUsage.CpuStats.ThrottledTime), alloc.Job.Name, alloc.TaskGroup, alloc.Name,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				allocationMemory, prometheus.GaugeValue, float64(stats.ResourceUsage.MemoryStats.RSS), alloc.Job.Name, alloc.TaskGroup, alloc.Name,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				allocationMemoryLimit, prometheus.GaugeValue, float64(alloc.Resources.MemoryMB), alloc.Job.Name, alloc.TaskGroup, alloc.Name,
+			)
+		}(a)
 	}
+	w.Wait()
 }
 
 func main() {
