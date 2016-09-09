@@ -39,7 +39,7 @@ var (
 		nil, nil,
 	)
 	allocationCount = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "allocatioms"),
+		prometheus.BuildFQName(namespace, "", "allocations"),
 		"How many allocations are there in the cluster.",
 		nil, nil,
 	)
