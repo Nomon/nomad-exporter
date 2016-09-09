@@ -65,6 +65,16 @@ var (
 	)
 )
 
+func AllocationsByStatus(allocs []*api.AllocationListStub, status string) []*api.AllocationListStub {
+	var resp []*api.AllocationListStub
+	for _, a := range allocs {
+		if a.ClientStatus == status {
+			resp = append(resp, a)
+		}
+	}
+	return resp
+}
+
 type Exporter struct {
 	client *api.Client
 }
@@ -131,11 +141,15 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 		logError(err)
 		return
 	}
+
+	running_allocs := AllocationsByStatus(allocs, "running")
+
 	ch <- prometheus.MustNewConstMetric(
-		allocationCount, prometheus.GaugeValue, float64(len(allocs)),
+		allocationCount, prometheus.GaugeValue, float64(len(running_allocs)),
 	)
+
 	var w sync.WaitGroup
-	for _, a := range allocs {
+	for _, a := range running_allocs {
 		w.Add(1)
 		go func(a *api.AllocationListStub) {
 			defer w.Done()
