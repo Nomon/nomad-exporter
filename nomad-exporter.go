@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"math"
 
 	"github.com/hashicorp/nomad/api"
 	"github.com/prometheus/client_golang/prometheus"
@@ -73,6 +74,11 @@ var (
 		"Amount of virtual memory allocated to tasks on the host in MB",
 		[]string{"host", "datacenter"}, nil,
 	)
+	hostUsedMemory = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "host_used_memory_megabytes"),
+		"Amount of virtual memory used on the host in MB",
+		[]string{"host", "datacenter"}, nil,
+	)
 	hostResourceCPU = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "host_resource_cpu_megahertz"),
 		"Compute resources the host has in MHz",
@@ -81,6 +87,11 @@ var (
 	hostAllocatedCPU = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "host_allocated_cpu_megahertz"),
 		"Compute resources allocated to tasks on the host in MHz",
+		[]string{"host", "datacenter"}, nil,
+	)
+	hostUsedCPU = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "host_used_cpu_megahertz"),
+		"Compute resources used on the host in MHz",
 		[]string{"host", "datacenter"}, nil,
 	)
 )
@@ -124,8 +135,10 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- allocationMemoryLimit
 	ch <- hostResourceMemory
 	ch <- hostAllocatedMemory
+	ch <- hostUsedMemory
 	ch <- hostResourceCPU
 	ch <- hostAllocatedCPU
+	ch <- hostUsedCPU
 }
 
 // Collect collects nomad metrics
@@ -222,6 +235,11 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 				logError(err)
 				return
 			}
+			nodeStats, err := e.client.Nodes().Stats(a.ID, &api.QueryOptions{})
+			if err != nil {
+				logError(err)
+				return
+			}
 
 			var allocatedCPU, allocatedMemory int
 			for _, alloc := range runningAllocs {
@@ -236,10 +254,16 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 				hostAllocatedMemory, prometheus.GaugeValue, float64(allocatedMemory), node.Name, node.Datacenter,
 			)
 			ch <- prometheus.MustNewConstMetric(
+				hostUsedMemory, prometheus.GaugeValue, float64(nodeStats.Memory.Used / 1024 / 1024), node.Name, node.Datacenter,
+			)
+			ch <- prometheus.MustNewConstMetric(
 				hostResourceCPU, prometheus.GaugeValue, float64(node.Resources.CPU), node.Name, node.Datacenter,
 			)
 			ch <- prometheus.MustNewConstMetric(
 				hostAllocatedCPU, prometheus.GaugeValue, float64(allocatedCPU), node.Name, node.Datacenter,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				hostUsedCPU, prometheus.GaugeValue, float64(math.Floor(nodeStats.CPUTicksConsumed)), node.Name, node.Datacenter,
 			)
 		}(a)
 	}
