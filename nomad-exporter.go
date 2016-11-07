@@ -63,6 +63,26 @@ var (
 		"Allocation throttled CPU",
 		[]string{"job", "group", "alloc", "region", "datacenter"}, nil,
 	)
+	hostResourceMemory = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "host_resource_memory_megabytes"),
+		"Amount of virtual memory the host has in MB",
+		[]string{"host", "datacenter"}, nil,
+	)
+	hostAllocatedMemory = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "host_allocated_memory_megabytes"),
+		"Amount of virtual memory allocated to tasks on the host in MB",
+		[]string{"host", "datacenter"}, nil,
+	)
+	hostResourceCPU = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "host_resource_cpu_megahertz"),
+		"Compute resources the host has in MHz",
+		[]string{"host", "datacenter"}, nil,
+	)
+	hostAllocatedCPU = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "host_allocated_cpu_megahertz"),
+		"Compute resources allocated to tasks on the host in MHz",
+		[]string{"host", "datacenter"}, nil,
+	)
 )
 
 func AllocationsByStatus(allocs []*api.AllocationListStub, status string) []*api.AllocationListStub {
@@ -102,6 +122,10 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- allocationCPU
 	ch <- allocationCPUThrottled
 	ch <- allocationMemoryLimit
+	ch <- hostResourceMemory
+	ch <- hostAllocatedMemory
+	ch <- hostResourceCPU
+	ch <- hostAllocatedCPU
 }
 
 // Collect collects nomad metrics
@@ -183,7 +207,57 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			)
 		}(a)
 	}
+
+	for _, a := range nodes {
+		w.Add(1)
+		go func(a *api.NodeListStub) {
+			defer w.Done()
+			node, _, err := e.client.Nodes().Info(a.ID, &api.QueryOptions{})
+			if err != nil {
+				logError(err)
+				return
+			}
+			runningAllocs, err := getRunningAllocs(e.client, node.ID)
+			if err != nil {
+				logError(err)
+				return
+			}
+
+			var allocatedCPU, allocatedMemory int
+			for _, alloc := range runningAllocs {
+				allocatedCPU += alloc.Resources.CPU
+				allocatedMemory += alloc.Resources.MemoryMB
+			}
+
+			ch <- prometheus.MustNewConstMetric(
+				hostResourceMemory, prometheus.GaugeValue, float64(node.Resources.MemoryMB), node.Name, node.Datacenter,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				hostAllocatedMemory, prometheus.GaugeValue, float64(allocatedMemory), node.Name, node.Datacenter,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				hostResourceCPU, prometheus.GaugeValue, float64(node.Resources.CPU), node.Name, node.Datacenter,
+			)
+			ch <- prometheus.MustNewConstMetric(
+				hostAllocatedCPU, prometheus.GaugeValue, float64(allocatedCPU), node.Name, node.Datacenter,
+			)
+		}(a)
+	}
 	w.Wait()
+}
+
+func getRunningAllocs(client *api.Client, nodeID string) ([]*api.Allocation, error) {
+	var allocs []*api.Allocation
+
+	// Query the node allocations
+	nodeAllocs, _, err := client.Nodes().Allocations(nodeID, nil)
+	// Filter list to only running allocations
+	for _, alloc := range nodeAllocs {
+		if alloc.ClientStatus == "running" {
+			allocs = append(allocs, alloc)
+		}
+	}
+	return allocs, err
 }
 
 func main() {
