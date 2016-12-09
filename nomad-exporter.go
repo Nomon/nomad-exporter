@@ -4,10 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
-	"math"
 
 	"github.com/hashicorp/nomad/api"
 	"github.com/prometheus/client_golang/prometheus"
@@ -110,9 +111,7 @@ type Exporter struct {
 	client *api.Client
 }
 
-func NewExporter(address string) (*Exporter, error) {
-	cfg := api.DefaultConfig()
-	cfg.Address = address
+func NewExporter(cfg *api.Config) (*Exporter, error) {
 	client, err := api.NewClient(cfg)
 	if err != nil {
 		return nil, err
@@ -254,7 +253,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 				hostAllocatedMemory, prometheus.GaugeValue, float64(allocatedMemory), node.Name, node.Datacenter,
 			)
 			ch <- prometheus.MustNewConstMetric(
-				hostUsedMemory, prometheus.GaugeValue, float64(nodeStats.Memory.Used / 1024 / 1024), node.Name, node.Datacenter,
+				hostUsedMemory, prometheus.GaugeValue, float64(nodeStats.Memory.Used/1024/1024), node.Name, node.Datacenter,
 			)
 			ch <- prometheus.MustNewConstMetric(
 				hostResourceCPU, prometheus.GaugeValue, float64(node.Resources.CPU), node.Name, node.Datacenter,
@@ -290,6 +289,12 @@ func main() {
 		listenAddress = flag.String("web.listen-address", ":9172", "Address to listen on for web interface and telemetry.")
 		metricsPath   = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 		nomadServer   = flag.String("nomad.server", "http://localhost:4646", "HTTP API address of a Nomad server or agent.")
+		tlsCaFile     = flag.String("tls.ca-file", "", "ca-file path to a PEM-encoded CA cert file to use to verify the connection to nomad server")
+		tlsCaPath     = flag.String("tls.ca-path", "", "ca-path is the path to a directory of PEM-encoded CA cert files to verify the connection to nomad server")
+		tlsCert       = flag.String("tls.cert-file", "", "cert-file is the path to the client certificate for Nomad communication")
+		tlsKey        = flag.String("tls.key-file", "", "key-file is the path to the key for cert-file")
+		tlsInsecure   = flag.Bool("tls.insecure", false, "insecure enables or disables SSL verification")
+		tlsServerName = flag.String("tls.tls-server-name", "", "tls-server-name sets the SNI for Nomad ssl connection")
 	)
 	flag.Parse()
 
@@ -297,7 +302,20 @@ func main() {
 		fmt.Fprintln(os.Stdout, version.Print("nomad_exporter"))
 		os.Exit(0)
 	}
-	exporter, err := NewExporter(*nomadServer)
+	cfg := &api.Config{
+		Address: *nomadServer,
+	}
+	if strings.HasPrefix(cfg.Address, "https://") {
+		cfg.TLSConfig = &api.TLSConfig{
+			CACert:        *tlsCaFile,
+			CAPath:        *tlsCaPath,
+			ClientKey:     *tlsKey,
+			ClientCert:    *tlsCert,
+			Insecure:      *tlsInsecure,
+			TLSServerName: *tlsServerName,
+		}
+	}
+	exporter, err := NewExporter(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
