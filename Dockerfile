@@ -1,1 +1,1 @@
-FROM golang:1.6.2-onbuild
+FROM golang:1.7.4-onbuild
