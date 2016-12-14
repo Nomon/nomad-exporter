@@ -48,22 +48,22 @@ var (
 	allocationMemory = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "allocation_memory"),
 		"Allocation memory usage",
-		[]string{"job", "group", "alloc", "region", "datacenter"}, nil,
+		[]string{"job", "group", "alloc", "region", "datacenter", "node"}, nil,
 	)
 	allocationMemoryLimit = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "allocation_memory_limit"),
 		"Allocation memory limit",
-		[]string{"job", "group", "alloc", "region", "datacenter"}, nil,
+		[]string{"job", "group", "alloc", "region", "datacenter", "node"}, nil,
 	)
 	allocationCPU = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "allocation_cpu"),
 		"Allocation CPU usage",
-		[]string{"job", "group", "alloc", "region", "datacenter"}, nil,
+		[]string{"job", "group", "alloc", "region", "datacenter", "node"}, nil,
 	)
 	allocationCPUThrottled = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "allocation_cpu_throttle"),
 		"Allocation throttled CPU",
-		[]string{"job", "group", "alloc", "region", "datacenter"}, nil,
+		[]string{"job", "group", "alloc", "region", "datacenter", "node"}, nil,
 	)
 	hostResourceMemory = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "host_resource_memory_megabytes"),
@@ -73,27 +73,27 @@ var (
 	hostAllocatedMemory = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "host_allocated_memory_megabytes"),
 		"Amount of virtual memory allocated to tasks on the host in MB",
-		[]string{"host", "datacenter"}, nil,
+		[]string{"node", "datacenter"}, nil,
 	)
 	hostUsedMemory = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "host_used_memory_megabytes"),
 		"Amount of virtual memory used on the host in MB",
-		[]string{"host", "datacenter"}, nil,
+		[]string{"node", "datacenter"}, nil,
 	)
 	hostResourceCPU = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "host_resource_cpu_megahertz"),
 		"Compute resources the host has in MHz",
-		[]string{"host", "datacenter"}, nil,
+		[]string{"node", "datacenter"}, nil,
 	)
 	hostAllocatedCPU = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "host_allocated_cpu_megahertz"),
 		"Compute resources allocated to tasks on the host in MHz",
-		[]string{"host", "datacenter"}, nil,
+		[]string{"node", "datacenter"}, nil,
 	)
 	hostUsedCPU = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "host_used_cpu_megahertz"),
 		"Compute resources used on the host in MHz",
-		[]string{"host", "datacenter"}, nil,
+		[]string{"node", "datacenter"}, nil,
 	)
 )
 
@@ -206,16 +206,16 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 				return
 			}
 			ch <- prometheus.MustNewConstMetric(
-				allocationCPU, prometheus.GaugeValue, stats.ResourceUsage.CpuStats.Percent, alloc.Job.Name, alloc.TaskGroup, alloc.Name, alloc.Job.Region, node.Datacenter,
+				allocationCPU, prometheus.GaugeValue, stats.ResourceUsage.CpuStats.Percent, alloc.Job.Name, alloc.TaskGroup, alloc.Name, alloc.Job.Region, node.Datacenter, node.Name,
 			)
 			ch <- prometheus.MustNewConstMetric(
-				allocationCPUThrottled, prometheus.GaugeValue, float64(stats.ResourceUsage.CpuStats.ThrottledTime), alloc.Job.Name, alloc.TaskGroup, alloc.Name, alloc.Job.Region, node.Datacenter,
+				allocationCPUThrottled, prometheus.GaugeValue, float64(stats.ResourceUsage.CpuStats.ThrottledTime), alloc.Job.Name, alloc.TaskGroup, alloc.Name, alloc.Job.Region, node.Datacenter, node.Name,
 			)
 			ch <- prometheus.MustNewConstMetric(
-				allocationMemory, prometheus.GaugeValue, float64(stats.ResourceUsage.MemoryStats.RSS), alloc.Job.Name, alloc.TaskGroup, alloc.Name, alloc.Job.Region, node.Datacenter,
+				allocationMemory, prometheus.GaugeValue, float64(stats.ResourceUsage.MemoryStats.RSS), alloc.Job.Name, alloc.TaskGroup, alloc.Name, alloc.Job.Region, node.Datacenter, node.Name,
 			)
 			ch <- prometheus.MustNewConstMetric(
-				allocationMemoryLimit, prometheus.GaugeValue, float64(alloc.Resources.MemoryMB), alloc.Job.Name, alloc.TaskGroup, alloc.Name, alloc.Job.Region, node.Datacenter,
+				allocationMemoryLimit, prometheus.GaugeValue, float64(alloc.Resources.MemoryMB), alloc.Job.Name, alloc.TaskGroup, alloc.Name, alloc.Job.Region, node.Datacenter, node.Name,
 			)
 		}(a)
 	}
