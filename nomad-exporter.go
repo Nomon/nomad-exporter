@@ -302,19 +302,18 @@ func main() {
 		fmt.Fprintln(os.Stdout, version.Print("nomad_exporter"))
 		os.Exit(0)
 	}
-	cfg := &api.Config{
-		Address: *nomadServer,
-	}
+	cfg := api.DefaultConfig()
+	cfg.Address = *nomadServer
+
 	if strings.HasPrefix(cfg.Address, "https://") {
-		cfg.TLSConfig = &api.TLSConfig{
-			CACert:        *tlsCaFile,
-			CAPath:        *tlsCaPath,
-			ClientKey:     *tlsKey,
-			ClientCert:    *tlsCert,
-			Insecure:      *tlsInsecure,
-			TLSServerName: *tlsServerName,
-		}
+		cfg.TLSConfig.CACert = *tlsCaFile
+		cfg.TLSConfig.CAPath = *tlsCaPath
+		cfg.TLSConfig.ClientKey = *tlsKey
+		cfg.TLSConfig.ClientCert = *tlsCert
+		cfg.TLSConfig.Insecure = *tlsInsecure
+		cfg.TLSConfig.TLSServerName = *tlsServerName
 	}
+
 	exporter, err := NewExporter(cfg)
 	if err != nil {
 		log.Fatal(err)
