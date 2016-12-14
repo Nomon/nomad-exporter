@@ -22,6 +22,12 @@
 			"revisionTime": "2016-12-08T19:30:36Z"
 		},
 		{
+			"checksumSHA1": "A1PcINvF3UiwHRKn8UcgARgvGRs=",
+			"path": "github.com/hashicorp/go-rootcerts",
+			"revision": "6bb64b370b90e7ef1fa532be9e591a81c3493e00",
+			"revisionTime": "2016-05-03T14:34:40Z"
+		},
+		{
 			"checksumSHA1": "MUbJZdL5xl9+yEoLTZet6diIuHA=",
 			"path": "github.com/hashicorp/nomad/api",
 			"revision": "ae2b0f5afcddd89267aaad62796231deb5e1269d",
