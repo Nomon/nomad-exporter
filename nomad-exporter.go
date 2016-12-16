@@ -65,34 +65,34 @@ var (
 		"Allocation throttled CPU",
 		[]string{"job", "group", "alloc", "region", "datacenter", "node"}, nil,
 	)
-	hostResourceMemory = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "host_resource_memory_megabytes"),
-		"Amount of virtual memory the host has in MB",
-		[]string{"host", "datacenter"}, nil,
-	)
-	hostAllocatedMemory = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "host_allocated_memory_megabytes"),
-		"Amount of virtual memory allocated to tasks on the host in MB",
+	nodeResourceMemory = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "node_resource_memory_megabytes"),
+		"Amount of allocatable memory the node has in MB",
 		[]string{"node", "datacenter"}, nil,
 	)
-	hostUsedMemory = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "host_used_memory_megabytes"),
-		"Amount of virtual memory used on the host in MB",
+	nodeAllocatedMemory = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "node_allocated_memory_megabytes"),
+		"Amount of memory allocated to tasks on the node in MB",
 		[]string{"node", "datacenter"}, nil,
 	)
-	hostResourceCPU = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "host_resource_cpu_megahertz"),
-		"Compute resources the host has in MHz",
+	nodeUsedMemory = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "node_used_memory_megabytes"),
+		"Amount of memory used on the node in MB",
 		[]string{"node", "datacenter"}, nil,
 	)
-	hostAllocatedCPU = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "host_allocated_cpu_megahertz"),
-		"Compute resources allocated to tasks on the host in MHz",
+	nodeResourceCPU = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "node_resource_cpu_megahertz"),
+		"Amount of allocatable CPU the node has in MHz",
 		[]string{"node", "datacenter"}, nil,
 	)
-	hostUsedCPU = prometheus.NewDesc(
-		prometheus.BuildFQName(namespace, "", "host_used_cpu_megahertz"),
-		"Compute resources used on the host in MHz",
+	nodeAllocatedCPU = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "node_allocated_cpu_megahertz"),
+		"Amount of allocated CPU on the node in MHz",
+		[]string{"node", "datacenter"}, nil,
+	)
+	nodeUsedCPU = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "node_used_cpu_megahertz"),
+		"Amount of CPU used on the node in MHz",
 		[]string{"node", "datacenter"}, nil,
 	)
 )
@@ -132,12 +132,12 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- allocationCPU
 	ch <- allocationCPUThrottled
 	ch <- allocationMemoryLimit
-	ch <- hostResourceMemory
-	ch <- hostAllocatedMemory
-	ch <- hostUsedMemory
-	ch <- hostResourceCPU
-	ch <- hostAllocatedCPU
-	ch <- hostUsedCPU
+	ch <- nodeResourceMemory
+	ch <- nodeAllocatedMemory
+	ch <- nodeUsedMemory
+	ch <- nodeResourceCPU
+	ch <- nodeAllocatedCPU
+	ch <- nodeUsedCPU
 }
 
 // Collect collects nomad metrics
@@ -178,14 +178,14 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 
-	running_allocs := AllocationsByStatus(allocs, "running")
+	runningAllocs := AllocationsByStatus(allocs, "running")
 
 	ch <- prometheus.MustNewConstMetric(
-		allocationCount, prometheus.GaugeValue, float64(len(running_allocs)),
+		allocationCount, prometheus.GaugeValue, float64(len(runningAllocs)),
 	)
 
 	var w sync.WaitGroup
-	for _, a := range running_allocs {
+	for _, a := range runningAllocs {
 		w.Add(1)
 		go func(a *api.AllocationListStub) {
 			defer w.Done()
@@ -234,36 +234,38 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 				logError(err)
 				return
 			}
-			nodeStats, err := e.client.Nodes().Stats(a.ID, &api.QueryOptions{})
-			if err != nil {
-				logError(err)
-				return
-			}
+			if node.Status == "ready" {
+				nodeStats, err := e.client.Nodes().Stats(a.ID, &api.QueryOptions{})
+				if err != nil {
+					logError(err)
+					return
+				}
 
-			var allocatedCPU, allocatedMemory int
-			for _, alloc := range runningAllocs {
-				allocatedCPU += alloc.Resources.CPU
-				allocatedMemory += alloc.Resources.MemoryMB
-			}
+				var allocatedCPU, allocatedMemory int
+				for _, alloc := range runningAllocs {
+					allocatedCPU += alloc.Resources.CPU
+					allocatedMemory += alloc.Resources.MemoryMB
+				}
 
-			ch <- prometheus.MustNewConstMetric(
-				hostResourceMemory, prometheus.GaugeValue, float64(node.Resources.MemoryMB), node.Name, node.Datacenter,
-			)
-			ch <- prometheus.MustNewConstMetric(
-				hostAllocatedMemory, prometheus.GaugeValue, float64(allocatedMemory), node.Name, node.Datacenter,
-			)
-			ch <- prometheus.MustNewConstMetric(
-				hostUsedMemory, prometheus.GaugeValue, float64(nodeStats.Memory.Used/1024/1024), node.Name, node.Datacenter,
-			)
-			ch <- prometheus.MustNewConstMetric(
-				hostResourceCPU, prometheus.GaugeValue, float64(node.Resources.CPU), node.Name, node.Datacenter,
-			)
-			ch <- prometheus.MustNewConstMetric(
-				hostAllocatedCPU, prometheus.GaugeValue, float64(allocatedCPU), node.Name, node.Datacenter,
-			)
-			ch <- prometheus.MustNewConstMetric(
-				hostUsedCPU, prometheus.GaugeValue, float64(math.Floor(nodeStats.CPUTicksConsumed)), node.Name, node.Datacenter,
-			)
+				ch <- prometheus.MustNewConstMetric(
+					nodeResourceMemory, prometheus.GaugeValue, float64(node.Resources.MemoryMB), node.Name, node.Datacenter,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					nodeAllocatedMemory, prometheus.GaugeValue, float64(allocatedMemory), node.Name, node.Datacenter,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					nodeUsedMemory, prometheus.GaugeValue, float64(nodeStats.Memory.Used/1024/1024), node.Name, node.Datacenter,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					nodeResourceCPU, prometheus.GaugeValue, float64(node.Resources.CPU), node.Name, node.Datacenter,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					nodeAllocatedCPU, prometheus.GaugeValue, float64(allocatedCPU), node.Name, node.Datacenter,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					nodeUsedCPU, prometheus.GaugeValue, float64(math.Floor(nodeStats.CPUTicksConsumed)), node.Name, node.Datacenter,
+				)
+			}
 		}(a)
 	}
 	w.Wait()
