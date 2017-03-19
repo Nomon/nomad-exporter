@@ -65,6 +65,21 @@ var (
 		"Allocation throttled CPU",
 		[]string{"job", "group", "alloc", "region", "datacenter", "node"}, nil,
 	)
+	taskCPUTotalTicks = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "task_cpu_total_ticks"),
+		"Task CPU total ticks",
+		[]string{"job", "group", "alloc", "task", "region", "datacenter", "node"}, nil,
+	)
+	taskCPUPercent = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "task_cpu_percent"),
+		"Task CPU usage, percent",
+		[]string{"job", "group", "alloc", "task", "region", "datacenter", "node"}, nil,
+	)
+	taskMemoryRssBytes = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "task_memory_rss_bytes"),
+		"Task memory RSS usage, bytes",
+		[]string{"job", "group", "alloc", "task", "region", "datacenter", "node"}, nil,
+	)
 	nodeResourceMemory = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "node_resource_memory_megabytes"),
 		"Amount of allocatable memory the node has in MB",
@@ -132,6 +147,9 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- allocationCPU
 	ch <- allocationCPUThrottled
 	ch <- allocationMemoryLimit
+	ch <- taskCPUPercent
+	ch <- taskCPUTotalTicks
+	ch <- taskMemoryRssBytes
 	ch <- nodeResourceMemory
 	ch <- nodeAllocatedMemory
 	ch <- nodeUsedMemory
@@ -204,6 +222,17 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 			if err != nil {
 				logError(err)
 				return
+			}
+			for taskName, taskStats := range stats.Tasks {
+				ch <- prometheus.MustNewConstMetric(
+					taskCPUPercent, prometheus.GaugeValue, taskStats.ResourceUsage.CpuStats.Percent, alloc.Job.Name, alloc.TaskGroup, alloc.Name, taskName, alloc.Job.Region, node.Datacenter, node.Name,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					taskCPUTotalTicks, prometheus.GaugeValue, taskStats.ResourceUsage.CpuStats.TotalTicks, alloc.Job.Name, alloc.TaskGroup, alloc.Name, taskName, alloc.Job.Region, node.Datacenter, node.Name,
+				)
+				ch <- prometheus.MustNewConstMetric(
+					taskMemoryRssBytes, prometheus.GaugeValue, float64(taskStats.ResourceUsage.MemoryStats.RSS), alloc.Job.Name, alloc.TaskGroup, alloc.Name, taskName, alloc.Job.Region, node.Datacenter, node.Name,
+				)
 			}
 			ch <- prometheus.MustNewConstMetric(
 				allocationCPU, prometheus.GaugeValue, stats.ResourceUsage.CpuStats.Percent, alloc.Job.Name, alloc.TaskGroup, alloc.Name, alloc.Job.Region, node.Datacenter, node.Name,
