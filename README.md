@@ -19,6 +19,9 @@
 | nomad_allocation_cpu_throttle | How much allocation CPU is throttled | job, group, alloc, region, datacenter, node|
 | nomad_allocation_memory | How much memory allocation is consuming | job, group, alloc, region, datacenter, node |
 | nomad_allocation_memory_limit | Allocation memory limit | job, group, alloc, region, datacenter, node |
+| nomad_task_cpu_total_ticks | Task CPU total ticks | job, group, alloc, task, region, datacenter, node |
+| nomad_task_cpu_percent | Task CPU usage, percent | job, group, alloc, task, region, datacenter, node |
+| nomad_task_memory_rss_bytes | Task memory RSS usage, bytes | job, group, alloc, task, region, datacenter, node |
 | nomad_node_resource_memory_megabytes | Amount of allocatable memory the node has in MB | node, datacenter |
 | nomad_node_allocated_memory_megabytes | Amount of  memory allocated to tasks on the node in MB | node, datacenter |
 | nomad_node_used_memory_megabytes | Amount of memory used on the node in MB | node, datacenter |
