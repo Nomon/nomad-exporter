@@ -7,10 +7,10 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
-        "strconv"
 	"sync"
-        "time"
+	"time"
 
 	"github.com/hashicorp/nomad/api"
 	"github.com/prometheus/client_golang/prometheus"
@@ -348,11 +348,11 @@ func main() {
 		cfg.TLSConfig.TLSServerName = *tlsServerName
 	}
 
-        timeout, err := strconv.Atoi(*nomadTimeout)
-        if err != nil {
-                log.Fatal(err)
-        }
-        cfg.HttpClient.Timeout = time.Duration(timeout) * time.Second
+	timeout, err := strconv.Atoi(*nomadTimeout)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cfg.HttpClient.Timeout = time.Duration(timeout) * time.Second
 
 	exporter, err := NewExporter(cfg)
 	if err != nil {
