@@ -37,6 +37,11 @@ var (
 		"How many members are in the cluster.",
 		nil, nil,
 	)
+	nodeStatus = prometheus.NewDesc(
+		prometheus.BuildFQName(namespace, "", "serf_lan_member_status"),
+		"Describe member state",
+		[]string{"datacenter", "class", "node", "drain"}, nil,
+	)
 	jobCount = prometheus.NewDesc(
 		prometheus.BuildFQName(namespace, "", "jobs"),
 		"How many jobs are there in the cluster.",
@@ -143,6 +148,7 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- up
 	ch <- clusterServers
 	ch <- nodeCount
+	ch <- nodeStatus
 	ch <- allocationCount
 	ch <- jobCount
 	ch <- allocationMemory
@@ -184,6 +190,16 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(
 		nodeCount, prometheus.GaugeValue, float64(len(nodes)),
 	)
+	for _, node := range nodes {
+		state := 1
+		drain := strconv.FormatBool(node.Drain)
+		if node.Status == "down" {
+			state = 0
+		}
+		ch <- prometheus.MustNewConstMetric(
+			nodeStatus, prometheus.GaugeValue, float64(state), node.Datacenter, node.NodeClass, node.Name, drain,
+		)
+	}
 	jobs, _, err := e.client.Jobs().List(&api.QueryOptions{})
 	if err != nil {
 		logError(err)
